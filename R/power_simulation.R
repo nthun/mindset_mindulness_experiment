@@ -30,23 +30,27 @@ simulation_data <-
   # Use parallel processing to generate datasets(samples) based on parameters
   future_pmap(.progress = TRUE, 
               ~crossing(group = fct_inorder(c("Fixed-Control", 
+                                              "Fixed-Mindfulness",
+                                              "Growth-Control",
                                               "Growth-Mindfulness")),
                         id = 1:..1) %>% 
                 # Generate the number of extra tasks using truncated poisson distribution
                 # as the maximum number of extra tasks is 15.
                 mutate(extra_task = c(rtpois(n = ..1, lambda = lambda, b = 15), 
-                                      rtpois(n = ..1, lambda = lambda + difference, b = 15)))
-                
+                                      rtpois(n = ..1, lambda = lambda + difference/2, b = 15), 
+                                      rtpois(n = ..1, lambda = lambda + difference/2, b = 15), 
+                                      rtpois(n = ..1, lambda = lambda + difference, b = 15))) %>% 
+                separate(group, into = c("mindset", "intervention"))
   )
 
 
-# Test the hypothesis on each dataset
+# Test the hypothesis on each dataset (use parallel processing)
 simulation_results <-
   simulation_data %>% 
   future_map(.progress = TRUE, 
                 # Use poisson regression to test hypothesis
                 ~glm(extra_task ~ group, family = "poisson", data = .x) %>% 
-                broom::tidy(exponentiate = TRUE))
+                broom::tidy(exponentiate = TRUE, conf.int = TRUE))
 
 risk_ratios <-
   simulation_results %>% 
