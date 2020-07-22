@@ -8,7 +8,7 @@ library(extraDistr) # For truncated poisson distribution
 theme_set(theme_light()) # For clean plot theme
 plan(multisession(workers = availableCores())) # Setting parallel processing
 
-# Define parameters -----------------------------------------------------------------
+# Define parameters ----------------------------------------------------------------
 
 samples = 10000 # Number of samples for each n
 sample_increment = 20 # The increment of cell sizes for the simulation

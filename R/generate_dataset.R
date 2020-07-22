@@ -1,8 +1,8 @@
 # Generate a dataset of integer values with specified distribution paramaters
 # OUTPUT: A tibble in long format
-generate_dataset(n = 100, 
-                 groups = c("a", "b", "c"),
-                 means = c(3, 3.08, 3.12), sds = c(1, 1, 1))
+# generate_dataset(group_size = 100, 
+#                  groups = c("a", "b", "c"),
+#                  means = c(3, 3.08, 3.12), sds = c(1, 1, 1))
 
 if (!require(purrr)) install.packages("purrr")
 if (!require(dplyr)) install.packages("dplyr")
@@ -23,6 +23,7 @@ generate_dataset <- function(group_size,
   # Generate dataset
   purrr::map(seq_along(groups),
              ~dplyr::tibble(group = groups[.x],
+                            id = 1:group_size,
                             value = draw_values(group_size, means[.x], sds[.x]))) %>% 
     dplyr::bind_rows()
 
