@@ -17,10 +17,10 @@ theme_set(theme_light())
 # Define scale recoding -------------------------------------------------------------
 # se_
 agree_4 <- 
-  c("Egyáltalán nem értek egyet" = 1,
-    "Nem értek egyet" = 2,
-    "Egyetértek" = 3,
-    "Teljesen egyetértek" = 4
+  c("Egyáltalán nem értek egyet" = 0,
+    "Nem értek egyet" = 1,
+    "Egyetértek" = 2,
+    "Teljesen egyetértek" = 3
   )
 
 # ms_, mc_3
@@ -96,21 +96,21 @@ osf_auth(token = osf_pat)
 # Download data into data folder
 osf_retrieve_file("v6kcd") %>%
   osf_download(path = "data/",
-               # conflicts = "overwrite",
+               conflicts = "overwrite",
                progress = TRUE)
 
 # Read data
 mfs_raw <- qualtRics::read_survey("data/IQ_MS_MFS_2019_April+6,+2020_13.00.csv")
 
-# Process data
+# Clean the  data
 mfs <- 
   mfs_raw %>% 
   clean_names() %>% 
-  # Remove trial 
+  # Remove trials
   filter(status != "Survey Preview") %>% 
   # Keep only finished experiments
   filter(finished == TRUE) %>% 
-  # Exclude pilot run based on research log
+  # Exclude pilot runs based on research log
   filter(date(start_date) != "2019-03-18") %>% 
   filter(date(start_date) != "2019-04-01") %>% 
   filter(date(start_date) != "2019-04-08") %>% 
@@ -124,10 +124,7 @@ mfs <-
           intervention = case_when(fl_56_do == "Mfsintervention" ~ "Mindfulness",
                                    fl_56_do == "Controlintervention"  ~ "Control"))
 
-
-
-
-# Keep only the selected variables
+# Recode scale values to a number and keep importantvariables only
 mfs_scales <-
   mfs %>%
   # replace ő-s with o-s
@@ -156,7 +153,7 @@ mfs_scales <-
     # iq related questions
     iq_assessed, iq_importance, iq_confid_1,
     # consumption
-    mediatation, coffee, alcohol, drug = q325, 
+    meditation = mediatation, coffee, alcohol, drug = q325, 
     # suspicion check questions
     what1, what2, 
   )
@@ -175,9 +172,6 @@ processed_data <-
 
 # Processed data ready
 # write_excel_csv(processed_data, "data/processed_data_labels.csv")
-
-
-
 # Create and compare models ---------------------------------------------------------
 processed_data <- read_csv("data/processed_data_labels.csv")
 
