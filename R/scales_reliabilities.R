@@ -19,7 +19,7 @@ processed_reversed <-
                         `5` = 2,
                         `6` = 1)),
 # cognitive affective MFS (CAMS) scale
-          across(c(cams_6, cams_7), 
+          across(c(cams_2, cams_6, cams_7), 
                  ~recode(.x, 
                         `1` = 4,
                         `2` = 3,
@@ -48,7 +48,8 @@ processed_reversed <-
                          `3` = 3,
                          `4` = 2,
                          `5` = 1
-                 ))
+                 )),
+    meditation = fct_relevel(meditation, "Soha")
     )
 
 #Calculating alphas
@@ -65,37 +66,128 @@ processed_data %>%
   group_nest(questionnaire)
   alpha()
   
-processed_data %>% 
+processed_reversed %>% 
   select(starts_with("se_")) %>% 
   alpha()
 
-MS <- data.frame(processed_reversed[, 13:16])
-alpha(MS)
-CAMS <- data.frame(processed_reversed[, 17:28])
-alpha(CAMS)
-SC <- data.frame(processed_reversed[, 29:40])
-alpha(SC)
-RISC <- data.frame(processed_reversed[, 50:60])
-alpha(RISC)
-GRIT <- data.frame(processed_reversed[, 61:68])
-alpha(GRIT)
-MC <- data.frame(processed_reversed[, 69:71])
-alpha(MC)
+processed_reversed %>% 
+  select(starts_with("ms_")) %>% 
+  alpha()
+
+processed_reversed %>% 
+  select(starts_with("sc_")) %>% 
+  alpha()
+
+processed_reversed %>% 
+  select(starts_with("cams_")) %>% 
+  alpha()
+
+processed_reversed %>% 
+  select(starts_with("grit_")) %>% 
+  alpha()
+
+processed_reversed %>% 
+  select(starts_with("risc_")) %>% 
+  alpha()
+
+processed_reversed %>% 
+  select(starts_with("agt_p")) %>% 
+  alpha()
 
 
-#Calculating means
+# Outro experiences EFA --------------------------------------------------------
 
-processed_final <- processed_reversed %>%
-  mutate(ms_mean = rowMeans(x = select(.data = ., starts_with(match = "ms_"))))
-processed_final <- processed_final %>%
-  mutate(rosenberg_mean = rowMeans(x = select(.data = ., starts_with(match = "se_"))))
-processed_final <- processed_final %>%
-  mutate(cams_mean = rowMeans(x = select(.data = ., starts_with(match = "cams_"))))
-processed_final <- processed_final %>%
-  mutate(sc_mean = rowMeans(x = select(.data = ., starts_with(match = "sc_"))))
-processed_final <- processed_final %>%
-  mutate(risc_mean = rowMeans(x = select(.data = ., starts_with(match = "risc_"))))
-processed_final <- processed_final %>%
-  mutate(grit_mean = rowMeans(x = select(.data = ., starts_with(match = "grit_"))))
-processed_final <- processed_final %>%
-  mutate(mc_mean = rowMeans(x = select(.data = ., starts_with(match = "mc_"))))
+processed_data %>% 
+  select(starts_with("outro_experiences_")) %>% 
+  GGally::ggpairs()
+
+processed_data %>% 
+  select(starts_with("outro_experiences_")) %>% 
+  nfactors(rotate = "oblimin", fm = "wls")
+
+
+# 3 factor solution
+fa_3 <-
+  processed_data %>% 
+  select(starts_with("outro_experiences_")) %>% 
+  psych::fa(nfactors = 3, fm = "wls")
+
+
+fa_scores <- 
+  fa_3$scores %>% 
+  as_tibble() %>% 
+  rename(out_ = everything()) 
+
+  
+# Calculating scales by mean ---------------------------------------------------
+
+processed_final <- 
+  processed_reversed %>%
+  mutate(ms_mean = rowMeans(x = select(., starts_with("ms_"))),
+         se_mean = rowMeans(x = select(., starts_with("se_"))),
+         cams_mean = rowMeans(x = select(., starts_with("cams_"))),
+         sc_mean = rowMeans(x = select(., starts_with("sc_"))),
+         risc_mean = rowMeans(x = select(., starts_with("risc_"))),
+         grit_mean = rowMeans(x = select(., starts_with("grit_"))),
+         agp_t_mean = rowMeans(x = select(., starts_with("agt_p_")))
+        ) %>% 
+  bind_cols(fa_scores)
+
+write_excel_csv(processed_final, "data/processed_final.csv")
+
+
+# Sandbox ----------------------------------------------------------------------
+
+
+zeroinfl(extra_tasks ~ mindset * intervention * se_mean, dist = "negbin",
+                  data = processed_final) %>% 
+  summary()
+
+zeroinfl(extra_tasks ~ mindset * intervention * cams_mean, dist = "negbin",
+         data = processed_final) %>% 
+  summary()
+
+temp <-
+  MASS::glm.nb(extra_tasks ~ 
+             gender + age +
+             mindset * intervention *
+             scale(cams_mean) +
+             scale(se_mean) +
+             scale(sc_mean) +
+             scale(grit_mean)
+           , 
+data = processed_final)
+
+# temp2 <-
+  zeroinfl(extra_tasks ~ 
+           gender + age +
+           mindset * intervention *
+           # scale(se_mean)
+           scale(cams_mean)
+           # scale(sc_mean) +
+           # scale(grit_mean)
+           , 
+           dist = "negbin",
+           data = processed_final) %>% 
+    summary()
+
+tab_model(temp2, bootstrap = TRUE)
+
+summary(temp)
+check_collinearity(temp)
+
+qplot((processed_final$meditation))
+
+check_overdispersion(temp)
+check_zeroinflation(temp)
+
+processed_final %>% 
+  ggplot() +
+  aes(x = cams_mean, y = extra_tasks, color = intervention) +
+  geom_point(alpha = .5) +
+  geom_smooth(method = lm) +
+  facet_grid(.~intervention)
+  
+
+
+
