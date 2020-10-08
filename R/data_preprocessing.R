@@ -143,6 +143,7 @@ mfs_scales <-
     mc_3 = recode(mc_3, !!!agree_6),
     across(matches("^outro_experiences_\\d+"), ~recode(.x, !!!true_6)),
     across(matches("^previous_iq_score"), ~recode(.x, !!!iq_5)),
+    across(matches("agq_\\d+")),
     across(matches("agt_p_\\d+")),
     # iq related questions
     iq_assessed, iq_importance, iq_confid_1,
@@ -158,7 +159,7 @@ mfs_scales <-
 # Calculate the proportion of correct answers for the IQ tasks
 iq_correct_answers <- read_csv("data/iq_correct_answers.csv")
 
-iq_scores <-
+answers <- 
   mfs %>% 
   select(response_id, iq_correct_answers$task) %>% 
   pivot_longer(cols = -response_id,
@@ -166,7 +167,10 @@ iq_scores <-
                values_to = "answer") %>% 
   # Unanswered - e.g. out of time - questions will count as bad answers
   mutate(answer = if_else(is.na(answer), 0, answer)) %>% 
-  left_join(iq_correct_answers, by = "task") %>% 
+  left_join(iq_correct_answers, by = "task")
+
+iq_scores <-
+  answers %>% 
   group_by(response_id, block) %>% 
   summarise(pct_correct = mean(answer == correct_answer), .groups = "drop") %>% 
   pivot_wider(names_from = "block",
@@ -174,6 +178,7 @@ iq_scores <-
               names_prefix = "iq_")
 
 # Calculate the number of extra tasks and add it to the rest of the variables
+
 processed_data <-
   mfs %>% 
   select(response_id, matches("iq_prac_[^q]*\\d+$")) %>%
@@ -184,16 +189,10 @@ processed_data <-
   count(response_id, name = "extra_tasks") %>% 
   right_join(mfs_scales, by = "response_id") %>% 
   mutate(extra_tasks = if_else(is.na(extra_tasks), 0L, extra_tasks)) %>% 
-  left_join(iq_scores, by = "response_id")
+  left_join(iq_scores, by = "response_id") 
 
-# Processed data ready
-# write_excel_csv(processed_data, "data/processed_data_labels.csv")
 
 # Reverse items and calculate scales -------------------------------------------
-
-processed_data <- read_csv("data/processed_data_labels.csv")
-
-# Reverse coding items ---------------------------------------------------------
 
 processed_reversed <-
   processed_data %>% 
@@ -265,7 +264,7 @@ fa_scores <-
 
 # Calculating scales by mean ---------------------------------------------------
 
-processed_final <- 
+processed_final <-
   processed_reversed %>%
   mutate(ms_mean = rowMeans(x = select(., starts_with("ms_"))),
          se_mean = rowMeans(x = select(., starts_with("se_"))),
@@ -273,10 +272,24 @@ processed_final <-
          sc_mean = rowMeans(x = select(., starts_with("sc_"))),
          risc_mean = rowMeans(x = select(., starts_with("risc_"))),
          grit_mean = rowMeans(x = select(., starts_with("grit_"))),
-         agp_t_mean = rowMeans(x = select(., starts_with("agt_p_")))
+         
+         agq_sap = rowMeans(select(., c("agq_5","agq_8"))),
+         agq_sav = rowMeans(select(., c("agq_2", "agq_11"))),
+         agq_oap = rowMeans(select(., c("agq_3","agq_7"))),
+         agq_oav = rowMeans(select(., c("agq_6", "agq_9"))),
+         agq_tap = rowMeans(select(., c("agq_1","agq_10"))),
+         agq_tav = rowMeans(select(., c("agq_4","agq_12"))),
+         
+         agt_p_sap = rowMeans(select(., c("agt_p_5","agt_p_8"))),
+         agt_p_sav = rowMeans(select(., c("agt_p_2", "agt_p_11"))),
+         agt_p_oap = rowMeans(select(., c("agt_p_3","agt_p_7"))),
+         agt_p_oav = rowMeans(select(., c("agt_p_6", "agt_p_9"))),
+         agt_p_tap = rowMeans(select(., c("agt_p_1","agt_p_10"))),
+         agt_p_tav = rowMeans(select(., c("agt_p_4","agt_p_12")))
   ) %>% 
   # Attach factor scores
   bind_cols(fa_scores)
 
 write_excel_csv(processed_final, "data/processed_final.csv")
 
+processed_final
