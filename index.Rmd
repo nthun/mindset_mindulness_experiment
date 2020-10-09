@@ -1,0 +1,202 @@
+---
+title: "Mindset-Mindfulness Experiment Data Analysis"
+author: "Tamas Nagy"
+date: "10/9/2020"
+output: 
+  html_document:
+   theme: spacelab
+   code_download: true
+   toc: true
+   toc_float: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(broom)
+library(sjPlot)
+library(pscl)
+library(performance)
+library(ggbeeswarm)
+library(skimr)
+
+theme_set(theme_light())
+```
+
+# Read data
+
+Data processing is available in "script/data\_processing.R". We only use the processed data.
+
+```{r read data, message=FALSE, warning=FALSE}
+processed_final <- read_csv("data/processed_final.csv")
+
+```
+
+# Data exploration and descriptives
+
+## Sample
+
+TODO
+
+## Main variables
+
+First, we present the main descriptives of the whole sample for the outcomes and potential moderators.
+
+```{r}
+processed_final %>% 
+  select(extra_tasks, ms_mean, cams_mean, risc_mean, grit_mean, sc_mean, se_mean, iq_final:iq_warmup, out_1:out_3) %>% 
+  skim()
+```
+
+Second, we present the outcomes and potential moderators grouped by the manipulated variables (mindset and intervention).
+
+```{r}
+processed_final %>% 
+  select(mindset, intervention, extra_tasks, ms_mean, cams_mean, risc_mean, grit_mean, sc_mean, se_mean, iq_final:iq_warmup, out_1:out_3) %>% 
+  group_by(mindset, intervention) %>% 
+  skim()
+```
+
+The main outcome variable is the number of extra tasks that were performed in the optional practice block.
+
+```{r}
+processed_final %>% 
+  ggplot() +
+  aes(x = extra_tasks) +
+  geom_histogram(bins = 20) +
+  labs(title = "Distribution of the # of extra tasks")
+```
+
+The secondary outcomes are the IQ test points obtained at three different points.
+
+```{r}
+processed_final %>% 
+  select(iq_warmup, iq_real, iq_final) %>% 
+  pivot_longer(everything()) %>% 
+  mutate(name = fct_inorder(name)) %>% 
+  ggplot() +
+  aes(x = value) +
+  geom_histogram(bins = 25) +
+  scale_x_continuous(labels = scales::percent_format()) +
+  facet_wrap(~name)
+```
+
+# Manipulation check
+
+The manipulation for mindset was successful, as those in the fixed mindset group had a stronger belief that intelligence cannot be changed over time.
+
+```{r Mindest manipulation check}
+
+processed_final %>% 
+  lm(mc_3 ~ mindset, data = .) %>% 
+  summary()
+
+processed_final %>% 
+  ggplot() +
+  aes(x = mindset, y = mc_3, fill = mindset) +
+  geom_boxplot() +
+  scale_fill_viridis_d() +
+  labs(title = "Statement: \"Your intelligence is an attribute that you cannot change over time\"",
+       y = "Likert scale (1-6)")
+```
+
+```{r Mindfulness manipulation check}
+
+processed_final %>% 
+  lm(mc_1 ~ intervention, data = .) %>% 
+  summary()
+
+processed_final %>% 
+  ggplot() +
+  aes(x = intervention, y = mc_1, fill = intervention) +
+  geom_boxplot() +
+  scale_fill_viridis_d() +
+  labs(title = "Question: \"How much could you get into a calm and focused state of mind?\"",
+       y = "Likert scale (1-6)")
+
+```
+
+Those with higher dispositional growth mindset and / or mindullness were
+
+```{r}
+processed_final %>% 
+  select(mc_1, mc_3, cams_mean, ms_mean) %>%
+  ggplot() +
+  aes(y = mc_3, x = ms_mean) +
+  geom_point(alpha = .1) +
+  geom_smooth(method = lm) +
+  labs(x = "Dispositional growth mindset", y = "Statement: \"Your intelligence is an attribute that you cannot change over time\"")
+
+```
+
+```{r}
+processed_final %>% 
+  select(mc_1, mc_3, cams_mean, ms_mean) %>%
+  ggplot() +
+  aes(y = mc_1, x = cams_mean) +
+  geom_point(alpha = .1) +
+  geom_smooth(method = lm) +
+  labs(x = "Dispositional mindfulness", y = "Question: \"How much could you get into a calm and focused state of mind?\"")
+```
+
+# Test Main hypothesis
+
+We test the main hypothesis, that is the association of the mindset (fixed vs. growth) and intervention (mindfulness vs. control)
+
+```{r test main hypothesis}
+mod_1 <- glm(extra_tasks ~ mindset * intervention, 
+           family = "poisson", 
+           data = processed_final)
+
+mod_2 <- glm(extra_tasks ~ mindset + intervention, 
+             family = "poisson",
+             data = processed_final)
+
+tab_model(mod_1, mod_2, 
+          dv.labels = c("Interaction", "Only main effects"),
+          show.aic = TRUE, 
+          show.stat = TRUE, 
+          p.style = "numeric", 
+          show.loglik = TRUE, 
+          show.dev = TRUE, 
+          show.zeroinf = TRUE)
+
+# The model with the interaction term doesn't have a added value.
+AIC(mod_1, mod_2)
+BIC(mod_1, mod_2)
+
+# We should check for overdispersion and zero-inflation
+check_overdispersion(mod_1)
+check_zeroinflation(mod_1)
+
+```
+
+Although we found a significant effect of mindset in the expected direction -- i.e. growth mindset increases the motivation to solve more practice tasks -- we found that the assumptions for poisson regression are not met. The tests show both overdispersion and zero-inflation, therefore we need to use a model that corrects for these.
+
+```{r}
+# Negative binomial model
+mod_3 <- MASS::glm.nb(extra_tasks ~ mindset * intervention,
+                      data = processed_final)
+
+# Zero inflated poisson model
+mod_4 <- zeroinfl(extra_tasks ~ mindset * intervention, dist = "poisson",
+         data = processed_final) 
+
+# Zero inflated negative binomial model (should be used)
+mod_5 <- zeroinfl(extra_tasks ~ mindset * intervention, dist = "negbin",
+                  data = processed_final)
+
+tab_model(mod_3, mod_4, mod_5, 
+          dv.labels = c("Negative binomial", "Zero-inflated poisson", "Zero-inflated negative binomial"),
+          show.aic = TRUE, 
+          show.stat = TRUE, 
+          p.style = "numeric", 
+          show.loglik = TRUE,
+          show.dev = TRUE, 
+          show.fstat = TRUE,
+          show.zeroinf = TRUE)
+```
+
+The model that accounts for both overdispersion and zero-inflation does not show a significant effect neither for mindset, nor for the mindfulness.
