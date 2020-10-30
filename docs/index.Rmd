@@ -21,6 +21,7 @@ library(pscl)
 library(performance)
 library(ggbeeswarm)
 library(skimr)
+library(report)
 
 theme_set(theme_light())
 ```
@@ -30,7 +31,7 @@ theme_set(theme_light())
 Data processing is available in "script/data\_processing.R". We only use the processed data.
 
 ```{r read data, message=FALSE, warning=FALSE}
-processed_final <- read_csv("data/processed_final.csv")
+processed_final <- read_csv(here::here("data/processed_final.csv"))
 
 ```
 
@@ -38,7 +39,21 @@ processed_final <- read_csv("data/processed_final.csv")
 
 ## Sample
 
-TODO
+```{r results = "asis"}
+processed_final %>% 
+  report_participants(sex = "gender")
+```
+
+```{r}
+processed_final %>% 
+  select(age, term_no) %>% 
+  skim()
+
+processed_final %>% 
+  select(gender, education, field, meditation, coffee, alcohol) %>% 
+  mutate(across(where(is.character), as.factor)) %>% 
+  summary()
+```
 
 ## Main variables
 
@@ -118,7 +133,7 @@ processed_final %>%
 
 ```
 
-Those with higher dispositional growth mindset and / or mindullness were
+Those with higher dispositional growth mindset and / or mindullness were less likely to believe that intelligence cannot be changed over time.
 
 ```{r}
 processed_final %>% 
@@ -131,6 +146,8 @@ processed_final %>%
 
 ```
 
+Similarly, those with dispositional mindfulness were more likely to be able to get into a calm and focused state.
+
 ```{r}
 processed_final %>% 
   select(mc_1, mc_3, cams_mean, ms_mean) %>%
@@ -141,9 +158,11 @@ processed_final %>%
   labs(x = "Dispositional mindfulness", y = "Question: \"How much could you get into a calm and focused state of mind?\"")
 ```
 
-# Test Main hypothesis
+# Test main outcomes
 
-We test the main hypothesis, that is the association of the mindset (fixed vs. growth) and intervention (mindfulness vs. control)
+## Number of solved optional exercises  
+
+We test the main hypothesis, that is the association of the mindset (fixed vs. growth) and intervention (mindfulness vs. control) with the number of solved optional exercises.
 
 ```{r test main hypothesis}
 mod_1 <- glm(extra_tasks ~ mindset * intervention, 
@@ -200,3 +219,92 @@ tab_model(mod_3, mod_4, mod_5,
 ```
 
 The model that accounts for both overdispersion and zero-inflation does not show a significant effect neither for mindset, nor for the mindfulness.
+
+```{r results = "asis"}
+report(mod_5) %>% 
+  summary()
+
+```
+
+## Number of correct answers in the "real" IQ test
+
+```{r}
+iq_mod <- lm(iq_real ~ mindset * intervention, data = processed_final)
+
+tab_model(iq_mod)
+```
+
+```{r results = "asis"}
+report(iq_mod) %>% 
+  summary()
+```
+
+# Secondary outcomes
+
+## Task enjoyment/boredom
+
+```{r}
+bored_mod <- lm(out_2 ~ mindset * intervention, 
+                data = processed_final)
+
+tab_model(bored_mod, 
+          dv.labels = "Boredom",
+          show.stat = TRUE, 
+          show.est = FALSE,
+          show.std = TRUE, 
+          show.fstat = TRUE)
+```
+
+```{r results = "asis"}
+report(bored_mod) %>% 
+  summary()
+```
+
+## Anxiety/stress
+
+```{r}
+stress_mod <- lm(out_1 ~ mindset * intervention, 
+                 data = processed_final)
+
+tab_model(stress_mod, 
+          dv.labels = "Stress/anxiety",
+          show.stat = TRUE, 
+          show.est = FALSE,
+          show.std = TRUE, 
+          show.fstat = TRUE)
+```
+
+```{r results = "asis"}
+report(stress_mod) %>% 
+  summary()
+```
+
+## Achievement goals
+
+```{r}
+
+ag_mod <-
+  processed_final %>% 
+  select(response_id, agq_sap:agt_p_tav, mindset, intervention) %>% 
+  pivot_longer(agq_sap:agt_p_tav) %>% 
+  group_nest(name) %>% 
+  mutate(model = map(data, 
+                     ~lm(value ~ mindset * intervention, 
+                         data = .x)))
+
+pull(ag_mod, model) %>% 
+  set_names(ag_mod$name) %>% 
+  tab_model(., 
+            dv.labels = ag_mod$name,
+            show.stat = TRUE, 
+            show.est = FALSE,
+            show.std = TRUE, 
+            show.fstat = TRUE)
+  
+```
+
+# Moderator effects
+
+```{r}
+
+```
