@@ -160,7 +160,7 @@ processed_final %>%
 
 # Test main outcomes
 
-## Number of solved optional exercises  
+## Number of solved optional exercises
 
 We test the main hypothesis, that is the association of the mindset (fixed vs. growth) and intervention (mindfulness vs. control) with the number of solved optional exercises.
 
@@ -194,7 +194,7 @@ check_zeroinflation(mod_1)
 
 Although we found a significant effect of mindset in the expected direction -- i.e. growth mindset increases the motivation to solve more practice tasks -- we found that the assumptions for poisson regression are not met. The tests show both overdispersion and zero-inflation, therefore we need to use a model that corrects for these.
 
-```{r}
+```{r cache = TRUE}
 # Negative binomial model
 mod_3 <- MASS::glm.nb(extra_tasks ~ mindset * intervention,
                       data = processed_final)
@@ -208,6 +208,7 @@ mod_5 <- zeroinfl(extra_tasks ~ mindset * intervention, dist = "negbin",
                   data = processed_final)
 
 tab_model(mod_3, mod_4, mod_5, 
+          bootstrap = TRUE,
           dv.labels = c("Negative binomial", "Zero-inflated poisson", "Zero-inflated negative binomial"),
           show.aic = TRUE, 
           show.stat = TRUE, 
@@ -229,9 +230,19 @@ report(mod_5) %>%
 ## Number of correct answers in the "real" IQ test
 
 ```{r}
-iq_mod <- lm(iq_real ~ mindset * intervention, data = processed_final)
+iq_mod <- lm(iq_real ~ mindset * intervention, 
+             data = processed_final)
 
-tab_model(iq_mod)
+tab_model(iq_mod, 
+          dv.labels = "\"Real\" IQ test result",
+          bootstrap = TRUE,
+          show.stat = TRUE, 
+          show.est = FALSE,
+          show.std = TRUE, 
+          show.fstat = TRUE)
+
+check_model(iq_mod, 
+            check = c("vif", "qq", "normality", "ncv", "homogeneity", "reqq"))
 ```
 
 ```{r results = "asis"}
@@ -248,11 +259,15 @@ bored_mod <- lm(out_2 ~ mindset * intervention,
                 data = processed_final)
 
 tab_model(bored_mod, 
+          botstrap = TRUE
           dv.labels = "Boredom",
           show.stat = TRUE, 
           show.est = FALSE,
           show.std = TRUE, 
           show.fstat = TRUE)
+
+check_model(bored_mod, 
+            check = c("vif", "qq", "normality", "ncv", "homogeneity", "reqq"))
 ```
 
 ```{r results = "asis"}
@@ -267,11 +282,15 @@ stress_mod <- lm(out_1 ~ mindset * intervention,
                  data = processed_final)
 
 tab_model(stress_mod, 
+          bootstrap = TRUE,
           dv.labels = "Stress/anxiety",
           show.stat = TRUE, 
           show.est = FALSE,
           show.std = TRUE, 
           show.fstat = TRUE)
+
+check_model(stress_mod, 
+            check = c("vif", "qq", "normality", "ncv", "homogeneity", "reqq"))
 ```
 
 ```{r results = "asis"}
@@ -280,6 +299,8 @@ report(stress_mod) %>%
 ```
 
 ## Achievement goals
+
+None of the achievement goal variables were associated with the manipulated variables.
 
 ```{r}
 
