@@ -57,7 +57,7 @@ processed_final %>%
 
 ## Main variables
 
-First, we present the main descriptives of the whole sample for the outcomes and potential moderators.
+First, we present the main descriptives of the whole sample for the outcomes and potential moderators\_m1.
 
 ```{r}
 processed_final %>% 
@@ -65,7 +65,7 @@ processed_final %>%
   skim()
 ```
 
-Second, we present the outcomes and potential moderators grouped by the manipulated variables (mindset and intervention).
+Second, we present the outcomes and potential moderators\_m1 grouped by the manipulated variables (mindset and intervention).
 
 ```{r}
 processed_final %>% 
@@ -235,7 +235,7 @@ iq_mod <- lm(iq_real ~ mindset * intervention,
 
 tab_model(iq_mod, 
           dv.labels = "\"Real\" IQ test result",
-          bootstrap = TRUE,
+          # bootstrap = TRUE,
           show.stat = TRUE, 
           show.est = FALSE,
           show.std = TRUE, 
@@ -259,7 +259,7 @@ bored_mod <- lm(out_2 ~ mindset * intervention,
                 data = processed_final)
 
 tab_model(bored_mod, 
-          botstrap = TRUE
+          # bootstrap = TRUE,
           dv.labels = "Boredom",
           show.stat = TRUE, 
           show.est = FALSE,
@@ -282,7 +282,7 @@ stress_mod <- lm(out_1 ~ mindset * intervention,
                  data = processed_final)
 
 tab_model(stress_mod, 
-          bootstrap = TRUE,
+          # bootstrap = TRUE,
           dv.labels = "Stress/anxiety",
           show.stat = TRUE, 
           show.est = FALSE,
@@ -326,6 +326,81 @@ pull(ag_mod, model) %>%
 
 # Moderator effects
 
+The primary outcomes are checked for moderator effects (the upper row means the name of the moderator, that is used in the table as "value").
+
+## Number of solved optional exercises
+
+```{r}
+moderators_m1 <-
+  processed_final %>%
+  select(response_id, extra_tasks, mindset, intervention, 
+         age, gender, education,
+         ms_mean:grit_mean) %>% 
+  # Scale all continuous predictors
+  mutate(across(ms_mean:grit_mean, scale)) %>% 
+  pivot_longer(cols = c(age, ms_mean:grit_mean)) %>% 
+  group_nest(name) %>% 
+  mutate(model = map(data, 
+                     ~zeroinfl(extra_tasks ~ mindset * intervention * value, 
+                      dist = "negbin",
+                      data = .x)))
+
+
+pull(moderators_m1, model) %>% 
+  set_names(moderators_m1$name) %>% 
+  tab_model(., 
+            dv.labels = moderators_m1$name,
+            show.aic = TRUE, 
+            show.stat = TRUE, 
+            p.style = "numeric", 
+            show.loglik = TRUE, 
+            show.dev = TRUE, 
+            show.zeroinf = TRUE)
+
+
+```
+
+Those who had a higher dispositional mindfulness or had higher self-esteem, and received the mindfulness intervention solved approximately 1.5 times more optional tasks, compared to those who were in the fixed mindset and control conditions.
+
 ```{r}
 
+tab_model(moderators_m1$model[c(2, 7)],
+          dv.labels = c("Dispositional mindfulness",
+                        "Self-esteem"),
+          # bootstrap = TRUE,
+          show.aic = TRUE, 
+          show.stat = TRUE, 
+          p.style = "numeric", 
+          show.loglik = TRUE, 
+          show.dev = TRUE, 
+          show.zeroinf = TRUE)
+```
+
+## Number of correct answers in the "real" IQ test
+
+Here we only found that the score on the "real" IQ test was weakly associated with the grit score (the upper row means the name of the moderator, that is used in the table as "value").
+
+```{r}
+moderators_m2 <-
+  processed_final %>%
+  select(response_id, mindset, intervention, 
+         iq_real,
+         age, ms_mean:grit_mean) %>% 
+  # Scale all continuous predictors
+  mutate(across(c(iq_real, ms_mean:grit_mean), scale)) %>% 
+  pivot_longer(cols = c(age, ms_mean:grit_mean)) %>% 
+  group_nest(name) %>% 
+  mutate(model = map(data, 
+                     ~lm(iq_real ~ mindset * intervention * value, 
+                      data = .x)))
+
+
+pull(moderators_m2, model) %>% 
+  set_names(moderators_m2$name) %>% 
+  tab_model(., 
+            dv.labels = moderators_m2$name,
+            show.stat = TRUE,
+            show.est = FALSE,
+            show.std = TRUE, 
+            show.fstat = TRUE)
 ```
