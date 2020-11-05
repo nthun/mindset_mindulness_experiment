@@ -166,13 +166,14 @@ answers <-
                names_to = "task",
                values_to = "answer") %>% 
   # Unanswered - e.g. out of time - questions will count as bad answers
-  mutate(answer = if_else(is.na(answer), 0, answer)) %>% 
+  mutate(answer = if_else(is.na(answer), NA_real_, answer)) %>% 
   left_join(iq_correct_answers, by = "task")
 
 iq_scores <-
   answers %>% 
   group_by(response_id, block) %>% 
-  summarise(pct_correct = mean(answer == correct_answer), .groups = "drop") %>% 
+  summarise(pct_correct = mean(answer == correct_answer, na.rm = TRUE),
+            .groups = "drop") %>% 
   pivot_wider(names_from = "block",
               values_from = "pct_correct", 
               names_prefix = "iq_")
