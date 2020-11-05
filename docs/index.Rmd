@@ -55,7 +55,7 @@ processed_final %>%
   summary()
 ```
 
-## Main variables
+## Main variables {.tabset}
 
 First, we present the main descriptives of the whole sample for the outcomes and potential moderators\_m1.
 
@@ -306,8 +306,12 @@ None of the achievement goal variables were associated with the manipulated vari
 
 ag_mod <-
   processed_final %>% 
-  select(response_id, agq_sap:agt_p_tav, mindset, intervention) %>% 
+  select(response_id, agq_sap:agt_p_tav, mindset, intervention, extra_tasks) %>% 
   pivot_longer(agq_sap:agt_p_tav) %>% 
+  mutate(value = if_else(str_detect(name, "_p_") & extra_tasks == 0, 
+                         NA_real_,
+                         value)) %>% 
+  drop_na(value) %>% 
   group_nest(name) %>% 
   mutate(model = map(data, 
                      ~lm(value ~ mindset * intervention, 
@@ -331,7 +335,7 @@ The primary outcomes are checked for moderator effects (the upper row means the 
 ## Number of solved optional exercises
 
 ```{r}
-moderators_m1 <-
+moderators_m1 <- 
   processed_final %>%
   select(response_id, extra_tasks, mindset, intervention, 
          age, gender, education,
