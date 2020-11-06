@@ -55,9 +55,10 @@ processed_final %>%
   summary()
 ```
 
-## Main variables {.tabset}
+## Descriptive statistics {.tabset}
 
-First, we present the main descriptives of the whole sample for the outcomes and potential moderators\_m1.
+### All participants
+First, we present the main descriptives of the whole sample for the outcomes and potential moderators.
 
 ```{r}
 processed_final %>% 
@@ -65,7 +66,9 @@ processed_final %>%
   skim()
 ```
 
-Second, we present the outcomes and potential moderators\_m1 grouped by the manipulated variables (mindset and intervention).
+
+### Grouped by manipulated variables
+Second, we present the outcomes and potential moderators grouped by the manipulated variables (mindset and intervention).
 
 ```{r}
 processed_final %>% 
@@ -98,10 +101,11 @@ processed_final %>%
   facet_wrap(~name)
 ```
 
-# Manipulation check
+# Manipulation check {.tabset}
 
-The manipulation for mindset was successful, as those in the fixed mindset group had a stronger belief that intelligence cannot be changed over time.
+The manipulation for mindset was successful, as those in the fixed mindset group had a stronger belief that intelligence cannot be changed over time. On the other hand, the mindfulness intervention did not make the participants more mindful.
 
+## Mindset manipulation check
 ```{r Mindest manipulation check}
 
 processed_final %>% 
@@ -117,6 +121,7 @@ processed_final %>%
        y = "Likert scale (1-6)")
 ```
 
+## Intervention manipulation check
 ```{r Mindfulness manipulation check}
 
 processed_final %>% 
@@ -133,7 +138,11 @@ processed_final %>%
 
 ```
 
-Those with higher dispositional growth mindset and / or mindullness were less likely to believe that intelligence cannot be changed over time.
+# Dispositional confounders of the manipulation  {.tabset}
+
+## Dispositional mindset
+
+Those with higher dispositional growth mindset and / or mindfulness were less likely to believe that intelligence cannot be changed over time.
 
 ```{r}
 processed_final %>% 
@@ -146,6 +155,7 @@ processed_final %>%
 
 ```
 
+## Dispositional mindfulness
 Similarly, those with dispositional mindfulness were more likely to be able to get into a calm and focused state.
 
 ```{r}
