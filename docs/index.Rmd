@@ -12,8 +12,9 @@ editor_options:
   chunk_output_type: console
 ---
 
-```{r setup, include=FALSE}
+```{r setup, message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
 library(tidyverse)
 library(broom)
 library(sjPlot)
@@ -99,7 +100,37 @@ processed_final %>%
 ## Compare baseline characteristics
 
 ```{r}
+# Group Ns
+processed_final %>% 
+  count(mindset, intervention) %>% 
+  pivot_wider(names_from = c(mindset, intervention),
+              names_sep = " - ",
+              values_from = n) %>% 
+  gt() %>% 
+    tab_options(row.striping.include_table_body = TRUE,
+              row.striping.background_color = "#EEEEEE", 
+              row.striping.include_stub = TRUE,
+              column_labels.background.color = "#CCCCCC",
+              column_labels.font.weight = "bold") %>% 
+   tab_header(title = "Number of participants by group")
 
+# Group gender Ns
+processed_final %>% 
+  count(mindset, intervention, Gender = gender) %>% 
+    pivot_wider(names_from = c(mindset, intervention),
+              names_sep = " - ",
+              values_from = n) %>% 
+  gt() %>% 
+    tab_options(row.striping.include_table_body = TRUE,
+              row.striping.background_color = "#EEEEEE", 
+              row.striping.include_stub = TRUE,
+              column_labels.background.color = "#CCCCCC",
+              column_labels.font.weight = "bold") %>% 
+   tab_header(title = "Number of participants of each gender by group")
+```
+
+
+```{r}
 scale_names <- c("age" = "Age",
                  "gender" = "Gender: Male",
                  "ms" = "Prior growth mindset",
@@ -359,8 +390,10 @@ mod_4 <- zeroinfl(extra_tasks ~ mindset * intervention, dist = "poisson",
 mod_5 <- zeroinfl(extra_tasks ~ mindset * intervention, dist = "negbin",
                   data = processed_final)
 
+# Null model for model comparisons
+mod_0 <- zeroinfl(extra_tasks ~ 1, data = processed_final, dist = "negbin")
+
 tab_model(
-          # mod_3, mod_4, 
           mod_5, 
           # bootstrap = TRUE,
           dv.labels = c("Zero-inflated negative binomial"),
@@ -376,25 +409,20 @@ tab_model(
   
 ```
 
-
 ```{r include = FALSE, eval = FALSE}
-
 summary(mod_5)
 BIC(mod_5)
-
 ```
 
-The model that accounts for both overdispersion and zero-inflation does not show a significant effect neither for mindset, nor for the mindfulness.
+The model that accounts for both overdispersion and zero-inflation does not show a significant effect neither for mindset, nor the mindfulness.
 
 ```{r results = "asis"}
 report(mod_5) %>% 
   summary()
 ```
 
-```{r}
-# No method for zero-inflated models
-# check_model(mod_5)
-```
+Bayes Factor for for the zero inflated negative binomial model: `format(exp((BIC(mod_0) - BIC(mod_5))/2), digits = 10)` 
+This means, it is very unlikely that the model that contains both the mindset and mindfulness interventions (and their interaction) to have an associations with the number of completed optional exercises.
 
 ## Proportion of correct answers in the "real" IQ test
 
@@ -409,7 +437,8 @@ iq_mod <- lm(iq_real ~ mindset * intervention,
              data = processed_final)
 
 summary(iq_mod)
-report(iq_mod)
+report(iq_mod) %>% 
+  summary()
 
 tab_model(iq_mod, 
           dv.labels = "\"Real\" IQ test result",
