@@ -1,7 +1,7 @@
 ---
 title: "Mindset-Mindfulness Experiment Data Analysis"
 author: "Tamas Nagy"
-date: "10/9/2020"
+date: "21/7/2021"
 output: 
   html_document:
    theme: spacelab
@@ -19,9 +19,11 @@ library(broom)
 library(sjPlot)
 library(pscl)
 library(performance)
-library(ggbeeswarm)
 library(skimr)
 library(report)
+library(ggbeeswarm)
+library(scales)
+library(gt)
 
 theme_set(theme_light())
 ```
@@ -46,10 +48,6 @@ processed_final %>%
 
 ```{r}
 processed_final %>% 
-  select(age, term_no) %>% 
-  skim()
-
-processed_final %>% 
   select(gender, education, field, meditation, coffee, alcohol) %>% 
   mutate(across(where(is.character), as.factor)) %>% 
   summary()
@@ -58,23 +56,133 @@ processed_final %>%
 ## Descriptive statistics {.tabset}
 
 ### All participants
+
 First, we present the main descriptives of the whole sample for the outcomes and potential moderators.
 
 ```{r}
-processed_final %>% 
-  select(extra_tasks, ms_mean, cams_mean, risc_mean, grit_mean, sc_mean, se_mean, iq_final:iq_warmup, out_1:out_3) %>% 
+processed_final %>%
+  select(
+    extra_tasks,
+    ms_mean,
+    cams_mean,
+    risc_mean,
+    grit_mean,
+    sc_mean,
+    se_mean,
+    iq_final:iq_warmup,
+    out_1:out_3) %>%
   skim()
 ```
 
-
 ### Grouped by manipulated variables
-Second, we present the outcomes and potential moderators grouped by the manipulated variables (mindset and intervention).
+
+Second, we present the outcomes and potential moderators grouped by the manipulated variables (mindset and mindfulness induction).
 
 ```{r}
-processed_final %>% 
-  select(mindset, intervention, extra_tasks, ms_mean, cams_mean, risc_mean, grit_mean, sc_mean, se_mean, iq_final:iq_warmup, out_1:out_3) %>% 
-  group_by(mindset, intervention) %>% 
+processed_final %>%
+  select(
+    mindset,
+    intervention,
+    extra_tasks,
+    ms_mean,
+    cams_mean,
+    risc_mean,
+    grit_mean,
+    sc_mean,
+    se_mean,
+    iq_final:iq_warmup,
+    out_1:out_3) %>%
+  group_by(mindset, intervention) %>%
   skim()
+```
+
+## Compare baseline characteristics
+
+```{r}
+
+scale_names <- c("age" = "Age",
+                 "gender" = "Gender: Male",
+                 "ms" = "Prior growth mindset",
+                 "cams" = "Trait mindfulness",
+                 "risc" = "Ego-resilience",
+                 "grit" = "Grit",
+                 "sc" = "Self-compassion",
+                 "se" = "Global self-esteem")
+
+processed_final %>%
+  select(
+    mindset, intervention,
+    gender, age, 
+    ms_mean, cams_mean, risc_mean, grit_mean, sc_mean, se_mean) %>%
+  mutate(gender = recode(gender, `Female` = 0L, `Male` = 1L)) %>% 
+  group_by(mindset, intervention) %>%
+  summarise(across(gender:se_mean, 
+                   list("Mean" = mean, "SD" = sd), na.rm = TRUE), 
+            .groups = "drop") %>% 
+  pivot_longer(-c("mindset", "intervention")) %>% 
+  mutate(name = str_remove(name, "_mean")) %>% 
+  separate(name, into = c("Measure", "stat")) %>% 
+  pivot_wider(names_from = "stat", values_from = "value") %>% 
+  mutate(Measure = recode(Measure, !!!scale_names)) %>% 
+  unite("group", c("mindset", "intervention"), sep = "-") %>% 
+  mutate(across(c(Mean, SD), ~round(.x, 2) %>% 
+                              format(nsmall = 2))) %>% 
+  unite("mn", c("Mean", "SD"), sep = " (") %>% 
+  mutate(mn = paste0(mn, ")")) %>% 
+  pivot_wider(names_from = "group", values_from = "mn") %>% 
+  mutate(across(-Measure, ~if_else(Measure == "Gender: Male", 
+                                    str_remove(.x, "\\(.*\\)") %>% 
+                                       parse_number() %>% 
+                                       percent(accuracy = .1),
+                                    .x) %>% 
+                           str_squish())) %>% 
+  gt() %>% 
+  tab_spanner(label = "Group",
+              columns = `Fixed-Control`:`Growth-Mindfulness`) %>% 
+  tab_options(row.striping.include_table_body = TRUE,
+              row.striping.background_color = "#EEEEEE", 
+              row.striping.include_stub = TRUE,
+              column_labels.background.color = "#CCCCCC",
+              column_labels.font.weight = "bold" 
+              )
+  
+```
+
+None of the groups differed in any trait characteristics. The following table shows the 
+
+```{r}
+processed_final %>%
+  select(
+    mindset,
+    intervention,
+    gender, age,
+    ms_mean,
+    cams_mean,
+    risc_mean,
+    grit_mean,
+    sc_mean,
+    se_mean) %>%
+  mutate(gender = recode(gender, `Female` = 0L, `Male` = 1L)) %>% 
+  pivot_longer(-c(mindset, intervention)) %>% 
+  mutate(name = str_remove(name, "_mean") %>% 
+                recode(!!!scale_names)) %>% 
+  group_by(name) %>% 
+  nest() %>% 
+  mutate(mod = map(data, ~lm(value ~  mindset * intervention, data = .x) %>% 
+                          tidy())) %>% 
+  unnest(mod) %>% 
+  select(-data) %>% 
+  gt() %>% 
+  fmt_number(estimate:statistic, decimals = 2) %>% 
+  fmt_number(p.value, decimals = 4) %>% 
+  tab_options(row.striping.include_table_body = TRUE,
+              row.striping.background_color = "#EEEEEE", 
+              row.striping.include_stub = TRUE,
+              column_labels.background.color = "#CCCCCC",
+              column_labels.font.weight = "bold", 
+              row_group.background.color = "#CCCCCC", 
+              row_group.font.weight = "bold") 
+  
 ```
 
 The main outcome variable is the number of extra tasks that were performed in the optional practice block.
@@ -97,20 +205,23 @@ processed_final %>%
   ggplot() +
   aes(x = value) +
   geom_histogram(bins = 25) +
-  scale_x_continuous(labels = scales::percent_format()) +
+  scale_x_continuous(labels = percent_format()) +
   facet_wrap(~name)
 ```
 
 # Manipulation check {.tabset}
 
-The manipulation for mindset was successful, as those in the fixed mindset group had a stronger belief that intelligence cannot be changed over time. On the other hand, the mindfulness intervention did not make the participants more mindful.
+The manipulation for mindset was successful, as those in the fixed mindset group had a stronger belief that intelligence cannot be changed over time. On the other hand, the mindfulness induction did not make the participants more mindful.
 
 ## Mindset manipulation check
+
 ```{r Mindest manipulation check}
 
+report(lm(mc_3 ~ mindset + ms_mean, data = processed_final))
+
 processed_final %>% 
-  lm(mc_3 ~ mindset, data = .) %>% 
-  summary()
+  group_by(mindset) %>% 
+  skim(mc_3)
 
 processed_final %>% 
   ggplot() +
@@ -121,12 +232,42 @@ processed_final %>%
        y = "Likert scale (1-6)")
 ```
 
-## Intervention manipulation check
+```{r}
+processed_final %>% 
+  ggplot() + 
+  aes(x = mindset, y = mc_3) +
+  geom_violin(aes(fill = mindset)) +
+  geom_quasirandom(alpha = .5, color = "grey50") +
+  geom_boxplot(width= .2, alpha = .3,  outlier.alpha = 0) +
+  scale_fill_viridis_d() +
+  labs(title = "Statement: \"Your intelligence is an attribute that you cannot change over time\"",
+       y = "Likert scale (1-6)")
+```
+
+```{r}
+processed_final %>% 
+  group_by(mindset) %>% 
+  summarise(avg_mc_3 = mean(mc_3),
+            se_mc_3 = sd(mc_3)/sqrt(n())) %>% 
+  ggplot() + 
+  aes(x = mindset, y = avg_mc_3,
+      ymin = avg_mc_3 - se_mc_3, ymax = avg_mc_3 + se_mc_3) +
+  geom_errorbar(width = .1) +
+  geom_point() +
+  scale_y_continuous(limits = c(1,6)) +
+  labs(title = "Statement: \"Your intelligence is an attribute that you cannot change over time\"",
+       y = "Likert scale (1-6)")
+```
+
+## Mindfulness induction manipulation check
+
 ```{r Mindfulness manipulation check}
 
+report(lm(mc_1 ~ intervention + cams_mean, data = processed_final))
+
 processed_final %>% 
-  lm(mc_1 ~ intervention, data = .) %>% 
-  summary()
+  group_by(intervention) %>% 
+  skim(mc_1)
 
 processed_final %>% 
   ggplot() +
@@ -138,7 +279,7 @@ processed_final %>%
 
 ```
 
-# Dispositional confounders of the manipulation  {.tabset}
+# Dispositional confounders of the manipulation {.tabset}
 
 ## Dispositional mindset
 
@@ -156,6 +297,7 @@ processed_final %>%
 ```
 
 ## Dispositional mindfulness
+
 Similarly, those with dispositional mindfulness were more likely to be able to get into a calm and focused state.
 
 ```{r}
@@ -172,7 +314,7 @@ processed_final %>%
 
 ## Number of solved optional exercises
 
-We test the main hypothesis, that is the association of the mindset (fixed vs. growth) and intervention (mindfulness vs. control) with the number of solved optional exercises.
+We test the main hypothesis, that is the association of the mindset (fixed vs. growth) and mindfulness induction (mindfulness vs. control) with the number of solved optional exercises.
 
 ```{r test main hypothesis}
 mod_1 <- glm(extra_tasks ~ mindset * intervention, 
@@ -217,16 +359,29 @@ mod_4 <- zeroinfl(extra_tasks ~ mindset * intervention, dist = "poisson",
 mod_5 <- zeroinfl(extra_tasks ~ mindset * intervention, dist = "negbin",
                   data = processed_final)
 
-tab_model(mod_3, mod_4, mod_5, 
-          bootstrap = TRUE,
-          dv.labels = c("Negative binomial", "Zero-inflated poisson", "Zero-inflated negative binomial"),
+tab_model(
+          # mod_3, mod_4, 
+          mod_5, 
+          # bootstrap = TRUE,
+          dv.labels = c("Zero-inflated negative binomial"),
           show.aic = TRUE, 
           show.stat = TRUE, 
           p.style = "numeric", 
           show.loglik = TRUE,
           show.dev = TRUE, 
           show.fstat = TRUE,
-          show.zeroinf = TRUE)
+          show.zeroinf = TRUE 
+          # file = here::here("docs/zinb.html")
+          )
+  
+```
+
+
+```{r include = FALSE, eval = FALSE}
+
+summary(mod_5)
+BIC(mod_5)
+
 ```
 
 The model that accounts for both overdispersion and zero-inflation does not show a significant effect neither for mindset, nor for the mindfulness.
@@ -234,30 +389,57 @@ The model that accounts for both overdispersion and zero-inflation does not show
 ```{r results = "asis"}
 report(mod_5) %>% 
   summary()
-
 ```
 
-## Number of correct answers in the "real" IQ test
+```{r}
+# No method for zero-inflated models
+# check_model(mod_5)
+```
+
+## Proportion of correct answers in the "real" IQ test
 
 ```{r}
+y_brt <- function(y){
+    n.obs <- sum(!is.na(y))
+    (y * (n.obs - 1) + 0.5) / n.obs
+}
+
+
 iq_mod <- lm(iq_real ~ mindset * intervention, 
              data = processed_final)
+
+summary(iq_mod)
+report(iq_mod)
 
 tab_model(iq_mod, 
           dv.labels = "\"Real\" IQ test result",
           # bootstrap = TRUE,
           show.stat = TRUE, 
           show.est = FALSE,
-          show.std = TRUE, 
-          show.fstat = TRUE)
+          show.std = TRUE,
+          show.aic = TRUE,
+          show.fstat = TRUE, 
+          robust = TRUE
+          # file = here::here("docs/realiq.html")
+          )
 
 check_model(iq_mod, 
             check = c("vif", "qq", "normality", "ncv", "homogeneity", "reqq"))
+
 ```
+
+```{r include = FALSE, eval=FALSE}
+
+summary(iq_mod)
+BIC(iq_mod)
+```
+
 
 ```{r results = "asis"}
 report(iq_mod) %>% 
   summary()
+
+
 ```
 
 # Secondary outcomes
@@ -274,7 +456,9 @@ tab_model(bored_mod,
           show.stat = TRUE, 
           show.est = FALSE,
           show.std = TRUE, 
-          show.fstat = TRUE)
+          show.fstat = TRUE,
+          file = here::here("docs/boredom.html")
+          )
 
 check_model(bored_mod, 
             check = c("vif", "qq", "normality", "ncv", "homogeneity", "reqq"))
@@ -297,11 +481,34 @@ tab_model(stress_mod,
           show.stat = TRUE, 
           show.est = FALSE,
           show.std = TRUE, 
-          show.fstat = TRUE)
+          show.fstat = TRUE,
+        file = here::here("docs/anxiety.html")
+        )
 
 check_model(stress_mod, 
             check = c("vif", "qq", "normality", "ncv", "homogeneity", "reqq"))
 ```
+
+```{r, eval=FALSE, include=FALSE}
+tab_model(stress_mod, bored_mod,
+          # bootstrap = TRUE,
+          dv.labels = c("Stress/anxiety", "Boredom"),
+          show.stat = TRUE, 
+          show.est = FALSE,
+          show.std = TRUE, 
+          show.fstat = TRUE,
+          robust = TRUE,
+          show.aic = TRUE
+          # file = here::here("docs/anxiety-boredom.html")
+        )
+
+summary(stress_mod)
+summary(bored_mod)
+
+BIC(stress_mod)
+BIC(bored_mod)
+```
+
 
 ```{r results = "asis"}
 report(stress_mod) %>% 
@@ -369,12 +576,14 @@ pull(moderators_m1, model) %>%
             p.style = "numeric", 
             show.loglik = TRUE, 
             show.dev = TRUE, 
-            show.zeroinf = TRUE)
+            show.zeroinf = TRUE,
+            file = here::here("docs/moderators.html")
+          )
 
 
 ```
 
-Those who had a higher dispositional mindfulness or had higher self-esteem, and received the mindfulness intervention solved approximately 1.5 times more optional tasks, compared to those who were in the fixed mindset and control conditions.
+Those who had a higher dispositional mindfulness or had higher self-esteem, and received the mindfulness induction solved approximately 1.5 times more optional tasks, compared to those who were in the fixed mindset and control conditions.
 
 ```{r}
 
@@ -387,7 +596,27 @@ tab_model(moderators_m1$model[c(2, 7)],
           p.style = "numeric", 
           show.loglik = TRUE, 
           show.dev = TRUE, 
+          # file = here::here("docs/moderators.html"),
           show.zeroinf = TRUE)
+
+BIC(moderators_m1$model[[2]])
+
+tab_model(
+          mod_5, 
+          moderators_m1$model[[2]],
+          # bootstrap = TRUE,
+          dv.labels = c("Simple model",
+                        "Moderator model"),
+          show.aic = TRUE, 
+          show.stat = TRUE, 
+          p.style = "numeric", 
+          show.loglik = TRUE,
+          show.dev = TRUE, 
+          show.fstat = TRUE,
+          show.zeroinf = TRUE 
+          # file = here::here("docs/zinb-mod.html")
+          )
+
 ```
 
 ## Number of correct answers in the "real" IQ test
@@ -418,3 +647,4 @@ pull(moderators_m2, model) %>%
             show.std = TRUE, 
             show.fstat = TRUE)
 ```
+
