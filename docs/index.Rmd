@@ -1,6 +1,6 @@
 ---
 title: "Mindset-Mindfulness Experiment Data Analysis"
-author: "Tamas Nagy"
+author: "XXX"
 date: "21/7/2021"
 output: 
   html_document:
@@ -240,73 +240,55 @@ processed_final %>%
   facet_wrap(~name)
 ```
 
-# Manipulation check {.tabset}
+# Induction check
 
-The manipulation for mindset was successful, as those in the fixed mindset group had a stronger belief that intelligence cannot be changed over time. On the other hand, the mindfulness induction did not make the participants more mindful.
+The induction for mindset was successful, as those in the fixed mindset group had a stronger belief that intelligence cannot be changed over time. On the other hand, the mindfulness induction did not make the participants more mindful.
 
 ## Mindset manipulation check
 
 ```{r Mindest manipulation check}
 
-report(lm(mc_3 ~ mindset + ms_mean, data = processed_final))
+mindset_stat <- lm(mc_3 ~ mindset + ms_mean, data = processed_final)
 
-processed_final %>% 
-  group_by(mindset) %>% 
-  skim(mc_3)
+tab_model(mindset_stat, show.df = TRUE)
 
-processed_final %>% 
+effectsize::cohens_d(mc_3 ~ mindset, data = processed_final)
+
+mindset_check <-
+  processed_final %>% 
   ggplot() +
-  aes(x = mindset, y = mc_3, fill = mindset) +
-  geom_boxplot() +
-  scale_fill_viridis_d() +
-  labs(title = "Statement: \"Your intelligence is an attribute that you cannot change over time\"",
-       y = "Likert scale (1-6)")
-```
-
-```{r}
-processed_final %>% 
-  ggplot() + 
-  aes(x = mindset, y = mc_3) +
-  geom_violin(aes(fill = mindset)) +
-  geom_quasirandom(alpha = .5, color = "grey50") +
-  geom_boxplot(width= .2, alpha = .3,  outlier.alpha = 0) +
-  scale_fill_viridis_d() +
-  labs(title = "Statement: \"Your intelligence is an attribute that you cannot change over time\"",
-       y = "Likert scale (1-6)")
-```
-
-```{r}
-processed_final %>% 
-  group_by(mindset) %>% 
-  summarise(avg_mc_3 = mean(mc_3),
-            se_mc_3 = sd(mc_3)/sqrt(n())) %>% 
-  ggplot() + 
-  aes(x = mindset, y = avg_mc_3,
-      ymin = avg_mc_3 - se_mc_3, ymax = avg_mc_3 + se_mc_3) +
-  geom_errorbar(width = .1) +
-  geom_point() +
-  scale_y_continuous(limits = c(1,6)) +
-  labs(title = "Statement: \"Your intelligence is an attribute that you cannot change over time\"",
-       y = "Likert scale (1-6)")
+  aes(y = mindset, x = mc_3, fill = mindset) +
+  geom_boxplot(show.legend = FALSE, width = .5, alpha = .7, outlier.alpha = 0) +
+  geom_jitter(width = .2, alpha = .5, height = .2, show.legend = FALSE) +
+  labs(subtitle = "Answer: \"Your intelligence is an attribute that you cannot change over time (1-6)\"",
+       y = NULL,
+       x = NULL)
 ```
 
 ## Mindfulness induction manipulation check
 
 ```{r Mindfulness manipulation check}
 
-report(lm(mc_1 ~ intervention + cams_mean, data = processed_final))
+mindfulness_stat <- lm(mc_1 ~ intervention + cams_mean, data = processed_final)
 
-processed_final %>% 
-  group_by(intervention) %>% 
-  skim(mc_1)
+tab_model(mindfulness_stat, show.df = TRUE)
+  
+effectsize::cohens_d(mc_1 ~ intervention, data = processed_final)
 
-processed_final %>% 
+mindfulness_check <- 
+  processed_final %>% 
   ggplot() +
-  aes(x = intervention, y = mc_1, fill = intervention) +
-  geom_boxplot() +
+  aes(y = intervention, x = mc_1, fill = intervention) +
+  geom_boxplot(show.legend = FALSE, width = .5, alpha = .7, outlier.alpha = 0) +
+  geom_jitter(width = .2, alpha = .5, height = .2, show.legend = FALSE) +
   scale_fill_viridis_d() +
-  labs(title = "Question: \"How much could you get into a calm and focused state of mind?\"",
-       y = "Likert scale (1-6)")
+  labs(subtitle = "Answer: \"How much could you get into a calm and focused state of mind? (1-6)\"",
+       x = NULL,
+       y = NULL)
+
+mindset_check + mindfulness_check + patchwork::plot_layout(nrow = 2) 
+
+# ggsave("docs/figure_3.png", dpi = 300)
 
 ```
 
@@ -323,7 +305,8 @@ processed_final %>%
   aes(y = mc_3, x = ms_mean) +
   geom_point(alpha = .1) +
   geom_smooth(method = lm) +
-  labs(x = "Dispositional growth mindset", y = "Statement: \"Your intelligence is an attribute that you cannot change over time\"")
+  labs(x = "Dispositional growth mindset", 
+       y = "Statement: \"Your intelligence is an attribute that you cannot change over time\"")
 
 ```
 
@@ -390,6 +373,7 @@ mod_4 <- zeroinfl(extra_tasks ~ mindset * intervention, dist = "poisson",
 mod_5 <- zeroinfl(extra_tasks ~ mindset * intervention, dist = "negbin",
                   data = processed_final)
 
+
 # Null model for model comparisons
 mod_0 <- zeroinfl(extra_tasks ~ 1, data = processed_final, dist = "negbin")
 
@@ -419,30 +403,45 @@ The model that accounts for both overdispersion and zero-inflation does not show
 ```{r results = "asis"}
 report(mod_5) %>% 
   summary()
+
 ```
 
-Bayes Factor for for the zero inflated negative binomial model: `format(exp((BIC(mod_0) - BIC(mod_5))/2), digits = 10)` 
+### Bayes Factors
+
+We calculated the Bayes Factors for models with different predictor terms. Based on the low BFs, it is very unlikely that any of the inductions would have an effect on the outcome.
+
+```{r}
+# BF for full model with interaction term
+exp((BIC(mod_0) - BIC(mod_5))/2)
+
+# BF mindset
+mod_5ms <- zeroinfl(extra_tasks ~ mindset, dist = "negbin",
+                  data = processed_final)
+
+exp((BIC(mod_0) - BIC(mod_5ms))/2)
+
+# BF mindfulness
+mod_5mf <- zeroinfl(extra_tasks ~ intervention, dist = "negbin",
+                  data = processed_final)
+
+exp((BIC(mod_0) - BIC(mod_5mf))/2)
+```
+
+Bayes Factor for for the zero inflated negative binomial model: `format(exp((BIC(mod_0) - BIC(mod_5))/2), digits = 4)` 
 This means, it is very unlikely that the model that contains both the mindset and mindfulness interventions (and their interaction) to have an associations with the number of completed optional exercises.
 
 ## Proportion of correct answers in the "real" IQ test
 
 ```{r}
-y_brt <- function(y){
-    n.obs <- sum(!is.na(y))
-    (y * (n.obs - 1) + 0.5) / n.obs
-}
-
-
 iq_mod <- lm(iq_real ~ mindset * intervention, 
              data = processed_final)
 
-summary(iq_mod)
+tab_model(iq_mod)
 report(iq_mod) %>% 
   summary()
 
 tab_model(iq_mod, 
           dv.labels = "\"Real\" IQ test result",
-          # bootstrap = TRUE,
           show.stat = TRUE, 
           show.est = FALSE,
           show.std = TRUE,
@@ -467,8 +466,6 @@ BIC(iq_mod)
 ```{r results = "asis"}
 report(iq_mod) %>% 
   summary()
-
-
 ```
 
 # Secondary outcomes
@@ -480,7 +477,6 @@ bored_mod <- lm(out_2 ~ mindset * intervention,
                 data = processed_final)
 
 tab_model(bored_mod, 
-          # bootstrap = TRUE,
           dv.labels = "Boredom",
           show.stat = TRUE, 
           show.est = FALSE,
@@ -629,6 +625,10 @@ tab_model(moderators_m1$model[c(2, 7)],
           show.zeroinf = TRUE)
 
 BIC(moderators_m1$model[[2]])
+BIC(moderators_m1$model[[4]])
+
+# BF for full model with interaction term
+exp((BIC(mod_0) - BIC(moderators_m1$model[[2]]))/2)
 
 tab_model(
           mod_5, 
@@ -646,6 +646,31 @@ tab_model(
           # file = here::here("docs/zinb-mod.html")
           )
 
+```
+
+### Visualize moderator effect
+
+```{r}
+cams_mod <- 
+  zeroinfl(extra_tasks ~ intervention * scale(cams_mean),
+           dist = "negbin",
+           data = processed_final) 
+
+mod_plot <-
+  processed_final %>% 
+  mutate(.fitted = predict(cams_mod, type = "response")) %>% 
+  ggplot() +
+  aes(x = cams_mean, y = extra_tasks, color = intervention) +
+  geom_point(alpha = .3, size = 2) +
+  geom_line(aes(y = .fitted), alpha = .6, size = 1.2) +
+  scale_color_viridis_d() +
+  labs(color = "Group",
+       y = "Solved optional tasks",
+       x = "Dispositional mindfulness")
+
+mod_plot 
+
+# ggsave(plot = mod_plot, filename = "docs/figure_4.png", dpi = 300)
 ```
 
 ## Number of correct answers in the "real" IQ test

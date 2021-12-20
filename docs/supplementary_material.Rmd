@@ -1,0 +1,330 @@
+---
+title: "Supplementary Material - Growth mindset and mindfulness inductions to facilitate effort after negative feedback"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+
+library(tidyverse)
+library(broom)
+library(sjPlot)
+library(performance)
+library(report)
+library(scales)
+library(gt)
+library(psych)
+library(knitr)
+
+theme_set(theme_light())
+```
+
+Data processing is available in "script/data_processing.R".
+
+```{r read data, message=FALSE, warning=FALSE}
+processed_final <- read_csv(here::here("data/processed_final.csv"))
+
+```
+
+# S1. Exploratory factor analysis of the expriences after the experiment
+
+After the last IQ performance was measured, we asked nine questions from the participants about their experiences during the study. We used exploratory factor analysis to extract the main factors from these questions. Based on multiple factor number estimating methods, we chose a three factor solution. 
+
+
+```{r}
+processed_final %>% 
+  select(starts_with("outro_experiences_")) %>% 
+  nfactors(rotate = "oblimin", fm = "wls", max.iter = 500)
+
+fa_3 <-
+  processed_final %>% 
+  select(starts_with("outro_experiences_")) %>% 
+  fa(nfactors = 3, fm = "wls", rotate = "oblimin")
+```
+
+Five questions loaded to the first factor (stress), and three questions loaded to the second factor (task boredom). Only one item loaded to the third factor, that we didn't analyze. Factor scores for task boredom and stress were calculated using the regression method, and were used in the later analyses.
+
+```{r}
+# Read item names
+outro_labels <- read_csv(here::here("data/outro_question_labels.csv"))
+
+tab_fa(fa_3, show.cronb = FALSE, show.comm = TRUE, 
+       var.labels = outro_labels$label, 
+       alternate.rows = TRUE, 
+       title = "EFA Factor loadings")
+
+```
+
+# S2. Compare baseline characteristics
+
+## Number of participants in each group, and by gender.
+
+```{r}
+# Group Ns
+processed_final %>% 
+  count(mindset, intervention) %>% 
+  pivot_wider(names_from = c(mindset, intervention),
+              names_sep = " - ",
+              values_from = n) %>% 
+  gt() %>% 
+    tab_options(row.striping.include_table_body = TRUE,
+              row.striping.background_color = "#EEEEEE", 
+              row.striping.include_stub = TRUE,
+              column_labels.background.color = "#CCCCCC",
+              column_labels.font.weight = "bold") %>% 
+   tab_header(title = "Number of participants by group")
+
+# Group gender Ns
+processed_final %>% 
+  count(mindset, intervention, Gender = gender) %>% 
+    pivot_wider(names_from = c(mindset, intervention),
+              names_sep = " - ",
+              values_from = n) %>% 
+  gt() %>% 
+    tab_options(row.striping.include_table_body = TRUE,
+              row.striping.background_color = "#EEEEEE", 
+              row.striping.include_stub = TRUE,
+              column_labels.background.color = "#CCCCCC",
+              column_labels.font.weight = "bold") %>% 
+   tab_header(title = "Number of participants of each gender by group")
+```
+
+##  Compare baseline characterisitcs by group
+
+```{r}
+scale_names <- c("age" = "Age",
+                 "gender" = "Gender: Male",
+                 "ms" = "Prior growth mindset",
+                 "cams" = "Trait mindfulness",
+                 "risc" = "Ego-resilience",
+                 "grit" = "Grit",
+                 "sc" = "Self-compassion",
+                 "se" = "Global self-esteem")
+
+processed_final %>%
+  select(
+    mindset, intervention,
+    gender, age, 
+    ms_mean, cams_mean, risc_mean, grit_mean, sc_mean, se_mean) %>%
+  mutate(gender = recode(gender, `Female` = 0L, `Male` = 1L)) %>% 
+  group_by(mindset, intervention) %>%
+  summarise(across(gender:se_mean, 
+                   list("Mean" = mean, "SD" = sd), na.rm = TRUE), 
+            .groups = "drop") %>% 
+  pivot_longer(-c("mindset", "intervention")) %>% 
+  mutate(name = str_remove(name, "_mean")) %>% 
+  separate(name, into = c("Measure", "stat")) %>% 
+  pivot_wider(names_from = "stat", values_from = "value") %>% 
+  mutate(Measure = recode(Measure, !!!scale_names)) %>% 
+  unite("group", c("mindset", "intervention"), sep = "-") %>% 
+  mutate(across(c(Mean, SD), ~round(.x, 2) %>% 
+                              format(nsmall = 2))) %>% 
+  unite("mn", c("Mean", "SD"), sep = " (") %>% 
+  mutate(mn = paste0(mn, ")")) %>% 
+  pivot_wider(names_from = "group", values_from = "mn") %>% 
+  mutate(across(-Measure, ~if_else(Measure == "Gender: Male", 
+                                    str_remove(.x, "\\(.*\\)") %>% 
+                                       parse_number() %>% 
+                                       percent(accuracy = .1),
+                                    .x) %>% 
+                           str_squish())) %>% 
+  gt() %>% 
+  tab_spanner(label = "Group",
+              columns = `Fixed-Control`:`Growth-Mindfulness`) %>% 
+  tab_options(row.striping.include_table_body = TRUE,
+              row.striping.background_color = "#EEEEEE", 
+              row.striping.include_stub = TRUE,
+              column_labels.background.color = "#CCCCCC",
+              column_labels.font.weight = "bold" 
+              )
+  
+```
+
+None of the groups differed in any trait characteristics. The following table shows the results of the linear models that were used for the comparisons.
+
+```{r}
+processed_final %>%
+  select(
+    mindset,
+    intervention,
+    gender, age,
+    ms_mean,
+    cams_mean,
+    risc_mean,
+    grit_mean,
+    sc_mean,
+    se_mean) %>%
+  mutate(gender = recode(gender, `Female` = 0L, `Male` = 1L)) %>% 
+  pivot_longer(-c(mindset, intervention)) %>% 
+  mutate(name = str_remove(name, "_mean") %>% 
+                recode(!!!scale_names)) %>% 
+  group_by(name) %>% 
+  nest() %>% 
+  mutate(mod = map(data, ~lm(value ~  mindset * intervention, data = .x) %>% 
+                          tidy())) %>% 
+  unnest(mod) %>% 
+  select(-data) %>% 
+  gt() %>% 
+  fmt_number(estimate:statistic, decimals = 2) %>% 
+  fmt_number(p.value, decimals = 4) %>% 
+  tab_options(row.striping.include_table_body = TRUE,
+              row.striping.background_color = "#EEEEEE", 
+              row.striping.include_stub = TRUE,
+              column_labels.background.color = "#CCCCCC",
+              column_labels.font.weight = "bold", 
+              row_group.background.color = "#CCCCCC", 
+              row_group.font.weight = "bold") 
+  
+```
+
+# S3. Determinants of the task performance
+
+```{r results = "asis"}
+iq_mod <- lm(iq_real ~ mindset * intervention, 
+             data = processed_final)
+
+report(iq_mod) %>% 
+  summary()
+```
+
+```{r}
+tab_model(iq_mod,
+          dv.labels = "\"Real\" IQ test result",
+          show.stat = TRUE,
+          show.est = FALSE,
+          show.std = TRUE,
+          show.aic = TRUE,
+          show.fstat = TRUE,
+          robust = TRUE
+          # file = here::here("docs/realiq.html")
+          )
+
+```
+
+# S4. Moderators for the task performance
+
+Here we only found that the score on the "real" IQ test was weakly associated with the grit score (the upper row means the name of the moderator, that is used in the table as "value").
+
+```{r}
+moderators_m2 <-
+  processed_final %>%
+  select(response_id, mindset, intervention, 
+         iq_real,
+         age, ms_mean:grit_mean) %>% 
+  # Scale all continuous predictors
+  mutate(across(c(iq_real, ms_mean:grit_mean), scale)) %>% 
+  pivot_longer(cols = c(age, ms_mean:grit_mean)) %>% 
+  group_nest(name) %>% 
+  mutate(model = map(data, 
+                     ~lm(iq_real ~ mindset * intervention * value, 
+                      data = .x)))
+
+pull(moderators_m2, model) %>% 
+  set_names(moderators_m2$name) %>% 
+  map_df(tidy, .id = "Moderator", conf.int = TRUE) %>% 
+  mutate(Moderator = str_remove(Moderator, "_mean") %>% 
+                     recode(., !!!scale_names),
+         term = str_replace(term, "value", Moderator)) %>% 
+  select(Moderator, term, estimate, conf.low, conf.high, statistic, p.value) %>% 
+  group_by(Moderator) %>% 
+  gt() %>% 
+  fmt_number(c(estimate:statistic), decimals = 2) %>%
+  fmt_number(p.value, decimals = 4) %>% 
+  tab_options(row.striping.include_table_body = TRUE,
+              row.striping.background_color = "#EEEEEE", 
+              row.striping.include_stub = TRUE,
+              row_group.background.color = "#CCCCCC",
+              row_group.font.weight = "bold",
+              column_labels.background.color = "#CCCCCC",
+              column_labels.font.weight = "bold" 
+              )
+```
+
+# S5. Secondary outcomes
+
+## Task boredom
+
+```{r results = "asis"}
+bored_mod <- lm(out_2 ~ mindset * intervention, 
+                data = processed_final)
+
+report(bored_mod) %>% 
+  summary()
+```
+
+```{r}
+tab_model(bored_mod,
+          dv.labels = "Boredom",
+          show.stat = TRUE,
+          show.est = FALSE,
+          show.std = TRUE,
+          show.fstat = TRUE
+          # file = here::here("docs/boredom.html")
+          )
+
+```
+
+
+## Stress
+
+```{r results = "asis"}
+stress_mod <- lm(out_1 ~ mindset * intervention, 
+                 data = processed_final)
+
+report(stress_mod) %>% 
+  summary()
+```
+
+```{r}
+tab_model(stress_mod,
+          dv.labels = "Stress/anxiety",
+          show.stat = TRUE,
+          show.est = FALSE,
+          show.std = TRUE,
+          show.fstat = TRUE
+        # file = here::here("docs/anxiety.html")
+        )
+
+```
+
+
+## Achievement goals
+
+We fitted everal independent linear regressions with each achievement goal scale as the outcome. None of the achievement goal variables were associated with the manipulated variables.
+
+```{r}
+
+ag_mod <-
+  processed_final %>% 
+  select(response_id, agq_sap:agt_p_tav, mindset, intervention, extra_tasks) %>% 
+  pivot_longer(agq_sap:agt_p_tav) %>% 
+  mutate(value = if_else(str_detect(name, "_p_") & extra_tasks == 0, 
+                         NA_real_,
+                         value)) %>% 
+  drop_na(value) %>% 
+  group_nest(name) %>% 
+  mutate(model = map(data, 
+                     ~lm(value ~ mindset * intervention, 
+                         data = .x)))
+
+
+pull(ag_mod, model) %>% 
+  set_names(ag_mod$name) %>% 
+  map_df(tidy, .id = "Achievment goal", conf.int = TRUE) %>% 
+  select(`Achievment goal`, term, estimate, conf.low, conf.high, statistic, p.value) %>% 
+  group_by(`Achievment goal`) %>% 
+  gt() %>% 
+  fmt_number(c(estimate:statistic), decimals = 2) %>%
+  fmt_number(p.value, decimals = 4) %>% 
+  tab_options(row.striping.include_table_body = TRUE,
+              row.striping.background_color = "#EEEEEE", 
+              row.striping.include_stub = TRUE,
+              row_group.background.color = "#CCCCCC",
+              row_group.font.weight = "bold",
+              column_labels.background.color = "#CCCCCC",
+              column_labels.font.weight = "bold" 
+              )
+```
+
