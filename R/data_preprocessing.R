@@ -240,7 +240,7 @@ processed_reversed <-
          meditation = fct_relevel(meditation, "Soha")
   )
 
-# Outro experiences Factror calculate -------------------------------
+# Outro experiences Factor calculate -------------------------------
 
 processed_data %>% 
   select(starts_with("outro_experiences_")) %>% 
@@ -261,7 +261,6 @@ fa_scores <-
   fa_3$scores %>% 
   as_tibble() %>% 
   rename(out_ = everything()) 
-
 
 # Calculating scales by mean ---------------------------------------------------
 
@@ -294,3 +293,4 @@ processed_final <-
 write_excel_csv(processed_final, "data/processed_final.csv")
 
 processed_final
+

@@ -54,18 +54,6 @@ processed_reversed <-
 
 #Calculating alphas
 
-processed_data %>% 
-  select(response_id, ms_1:agt_p_12) %>% 
-  # pivot_longer(-response_id,
-  #              names_to = "item",
-  #              values_to = "values") %>% 
-  # extract(item, 
-  #         into = c("questionnaire", NA), 
-  #         regex = "(\\w+)_(\\d+)", 
-  #         remove = FALSE) %>% 
-  group_nest(questionnaire)
-  alpha()
-  
 processed_reversed %>% 
   select(starts_with("se_")) %>% 
   alpha()
@@ -90,35 +78,6 @@ processed_reversed %>%
   select(starts_with("risc_")) %>% 
   alpha()
 
-processed_reversed %>% 
-  select(starts_with("agt_p")) %>% 
-  alpha()
-
-
-# Outro experiences EFA --------------------------------------------------------
-
-processed_data %>% 
-  select(starts_with("outro_experiences_")) %>% 
-  GGally::ggpairs()
-
-processed_data %>% 
-  select(starts_with("outro_experiences_")) %>% 
-  nfactors(rotate = "oblimin", fm = "wls")
-
-
-# 3 factor solution
-fa_3 <-
-  processed_data %>% 
-  select(starts_with("outro_experiences_")) %>% 
-  psych::fa(nfactors = 3, fm = "wls")
-
-
-fa_scores <- 
-  fa_3$scores %>% 
-  as_tibble() %>% 
-  rename(out_ = everything()) 
-
-  
 # Calculating scales by mean ---------------------------------------------------
 
 processed_final <- 
@@ -189,5 +148,76 @@ processed_final %>%
   facet_grid(.~intervention)
   
 
+# IQ tasks
+iq_correct_answers <- read_csv("data/iq_correct_answers.csv")
 
+iq_scores <-
+  mfs %>% 
+  select(response_id, iq_correct_answers$task) %>% 
+  pivot_longer(cols = -response_id,
+               names_to = "task",
+               values_to = "answer") %>% 
+  # Unanswered - e.g. out of time - questions will count as bad answers
+  mutate(answer = if_else(is.na(answer), 0, answer)) %>% 
+  left_join(iq_correct_answers, by = "task") %>% 
+  group_by(response_id, block) %>% 
+  summarise(pct_correct = mean(answer == correct_answer)) %>% 
+  ungroup() %>% 
+  pivot_wider(names_from = "block",
+              values_from = "pct_correct", 
+              names_prefix = "iq_")
 
+iq_scores %>% 
+  pivot_longer(-response_id) %>% 
+  ggplot() +
+  aes(x = value, fill = name) +
+  geom_density(alpha = .5) +
+  scale_x_continuous(labels = scales::percent_format())
+
+temp <- 
+processed_final %>%
+  select(response_id, gender, age, education, term_no, mindset, intervention, 
+         iq_assessed,
+         ends_with("_mean"), iq_final:iq_warmup, extra_tasks) %>% 
+  mutate(iq_change = mean(c(iq_real, iq_final)) - iq_warmup)
+  
+temp %>% 
+  ggplot() +
+  aes(x = iq_change) +
+  geom_density()
+  
+temp_lm <-
+  lm(scale(iq_change) ~ mindset * intervention + scale(extra_tasks), data = temp)
+
+summary(temp_lm)
+
+performance::check_model(temp_lm)
+
+library(sjPlot)
+tab_model(temp_lm, bootstrap = TRUE)
+
+temp %>% 
+  ggplot() +
+  aes(x = scale(cams_mean), y = iq_change) +
+  facet_grid(mindset ~ .) +
+  geom_point(alpha = .5) +
+  geom_smooth(method = lm) +
+  geom_hline(yintercept = 0)
+
+# Achievent goals
+agt_p_sap <- c("agt_p_5","agt_p_8")
+agt_p_sav <- c("agt_p_2", "agt_p_11")
+agt_p_oap <- c("agt_p_3","agt_p_7")
+agt_p_oav <- c("agt_p_6", "agt_p_9")
+agt_p_tap <- c("agt_p_1","agt_p_10")
+agt_p_tav <- c("agt_p_4","agt_p_12")
+
+processed_final <- 
+  processed_final %>% 
+  mutate(sap_p_mean = rowMeans(select(., agt_p_sap)),
+         agt_p_mean = rowMeans(select(., agt_p_sav)),
+         agt_p_mean = rowMeans(select(., agt_p_oap)),
+         agt_p_mean = rowMeans(select(., agt_p_oav)),
+         agt_p_mean = rowMeans(select(., agt_p_tap)),
+         agt_p_mean = rowMeans(select(., agt_p_tav))
+  )

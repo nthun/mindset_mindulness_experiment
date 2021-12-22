@@ -25,6 +25,7 @@ library(report)
 library(ggbeeswarm)
 library(scales)
 library(gt)
+library(patchwork)
 
 theme_set(theme_light())
 ```
@@ -269,7 +270,8 @@ mindset_check <-
 
 ```{r Mindfulness manipulation check}
 
-mindfulness_stat <- lm(mc_1 ~ intervention + cams_mean, data = processed_final)
+mindfulness_stat <- lm(mc_1 ~ intervention + cams_mean, 
+                       data = processed_final)
 
 tab_model(mindfulness_stat, show.df = TRUE)
   
