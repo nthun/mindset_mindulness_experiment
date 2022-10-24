@@ -1,0 +1,58 @@
+variable	type	description
+response_id	character	Unique ID
+extra_tasks	numeric	Number of extra tasks (main outcome)
+start_date	character	Survey start date
+end_date	character	Survey end date
+comput_id	character	ID of the lab computer
+gender	character	Gender
+age	numeric	    Age
+education	character   Highest education
+term_no	numeric	Current semester
+field	character	Study field
+mindset	character	Induction group 1 (Growth / Fixed) (main iv 1)
+intervention	character	Induction group 2 (Mindfulness / Control) (main iv 2)
+ms_1..4	numeric	Items of Theory of Intelligence Questionnaire
+cams_1..12	numeric	Items of Cognitive and Affective Mindfulness Scale
+sc_1..12	numeric	Items of Short Self-Compassion Scale
+se_1..9	numeric	Items of  Rosenberg Self-Esteem Scale
+risc_1..11	numeric	Items of Ego-Resiliency Scale
+grit_1..8	numeric	Items of Short Grit Scale
+mc_1.._3	numeric	Items of manipulation check
+outro_experiences_1..9	numeric	Items of Task-related boredom and stress
+previous_iq_score	numeric	Score on previous IQ test
+agq_1.12	numeric	Achievement Goal Questionnaire - IQ tests
+agt_p..12	numeric	Achievement Goal Questionnaire - IQ practice tasks
+iq_assessed	character	Have you ever taken an IQ test?
+iq_importance	character	How important the IQ score is for you?
+iq_confid_1	numeric Confidence about my own intellectual abilities
+meditation	character	Freqency of meditation
+coffee	character	Freqency of coffein intake
+alcohol	character	Freqency of alcohol intake
+drug	character	Freqency of drug intake
+what1	character	Drug 1
+what2	character	Drug 2
+iq_final	numeric	Proportion of correct answers on the "Final IQ test" block
+iq_practice	numeric	Proportion of correct answers on the "IQ practice" block
+iq_real	numeric	Proportion of correct answers on the "Real IQ test" block
+iq_warmup	numeric	Proportion of correct answers on the warmup IQ test block
+ms_mean	numeric	Aggregated Theory of Intelligence Questionnaire score
+se_mean	numeric	Aggregated Rosenberg Self-Esteem Scale score
+cams_mean	numeric	Aggregated Cognitive and Affective Mindfulness Scale score
+sc_mean	numeric	Aggregated Short Self-Compassion Scale score
+risc_mean	numeric	Aggregated Ego-Resiliency Scale score
+grit_mean	numeric	Aggregated Short Grit Scale score
+agq_sap	numeric	Aggregated Achievement Goal Questionnaire (self-approach)- IQ tests score
+agq_sav	numeric	Aggregated Achievement Goal Questionnaire (self-avoidance) - IQ tests score
+agq_oap	numeric	Aggregated Achievement Goal Questionnaire (other-approach) - IQ tests score
+agq_oav	numeric	Aggregated Achievement Goal Questionnaire (other-avoidance) - IQ tests score
+agq_tap	numeric	Aggregated Achievement Goal Questionnaire (task-approach) - IQ tests score
+agq_tav	numeric	Aggregated Achievement Goal Questionnaire (task-avoidance) - IQ tests score
+agt_p_sap	numeric	Aggregated Achievement Goal Questionnaire (self-approach) - IQ practice tasks score 
+agt_p_sav	numeric	Aggregated Achievement Goal Questionnaire (self-avoidance) - IQ practice tasks score
+agt_p_oap	numeric	Aggregated Achievement Goal Questionnaire (other-approach) - IQ practice tasks score
+agt_p_oav	numeric	Aggregated Achievement Goal Questionnaire (other-avoidance) - IQ practice tasks score
+agt_p_tap	numeric	Aggregated Achievement Goal Questionnaire (task-approach) - IQ practice tasks score
+agt_p_tav	numeric	Aggregated Achievement Goal Questionnaire (task-avoidance) - IQ practice tasks score
+out_1	numeric	First factor of outro_experiences items (Stress)
+out_2	numeric	First factor of outro_experiences items (Boredom)
+out_3	numeric	First factor of outro_experiences items (Challenge) - unused

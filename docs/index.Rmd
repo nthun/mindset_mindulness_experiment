@@ -288,9 +288,10 @@ mindfulness_check <-
        x = NULL,
        y = NULL)
 
+induction_plot <- 
 mindset_check + mindfulness_check + patchwork::plot_layout(nrow = 2) 
 
-# ggsave("docs/figure_3.png", dpi = 300)
+ggsave(plot = induction_plot, filename = "docs/figure_3.jpg", dpi = 300)
 
 ```
 
@@ -483,8 +484,8 @@ tab_model(bored_mod,
           show.stat = TRUE, 
           show.est = FALSE,
           show.std = TRUE, 
-          show.fstat = TRUE,
-          file = here::here("docs/boredom.html")
+        # file = here::here("docs/boredom.html"),
+          show.fstat = TRUE
           )
 
 check_model(bored_mod, 
@@ -508,8 +509,8 @@ tab_model(stress_mod,
           show.stat = TRUE, 
           show.est = FALSE,
           show.std = TRUE, 
-          show.fstat = TRUE,
-        file = here::here("docs/anxiety.html")
+          # file = here::here("docs/anxiety.html")
+          show.fstat = TRUE
         )
 
 check_model(stress_mod, 
@@ -593,7 +594,6 @@ moderators_m1 <-
                       dist = "negbin",
                       data = .x)))
 
-
 pull(moderators_m1, model) %>% 
   set_names(moderators_m1$name) %>% 
   tab_model(., 
@@ -614,9 +614,19 @@ Those who had a higher dispositional mindfulness or had higher self-esteem, and 
 
 ```{r}
 
-tab_model(moderators_m1$model[c(2, 7)],
-          dv.labels = c("Dispositional mindfulness",
-                        "Self-esteem"),
+ms_mod <- 
+  zeroinfl(extra_tasks ~ mindset * scale(ms_mean) + intervention,
+           dist = "negbin",
+           data = processed_final) 
+
+cams_mod <- 
+  zeroinfl(extra_tasks ~ mindset + intervention * scale(cams_mean),
+           dist = "negbin",
+           data = processed_final) 
+
+tab_model(ms_mod, cams_mod,
+          dv.labels = c("Pre-induction growth mindset beliefs as moderator",
+                        "Dispositional mindfulness as moderator"),
           # bootstrap = TRUE,
           show.aic = TRUE, 
           show.stat = TRUE, 
@@ -626,8 +636,8 @@ tab_model(moderators_m1$model[c(2, 7)],
           # file = here::here("docs/moderators.html"),
           show.zeroinf = TRUE)
 
-BIC(moderators_m1$model[[2]])
-BIC(moderators_m1$model[[4]])
+BIC(ms_mod)
+BIC(cams_mod)
 
 # BF for full model with interaction term
 exp((BIC(mod_0) - BIC(moderators_m1$model[[2]]))/2)
@@ -653,27 +663,60 @@ tab_model(
 ### Visualize moderator effect
 
 ```{r}
-cams_mod <- 
-  zeroinfl(extra_tasks ~ intervention * scale(cams_mean),
-           dist = "negbin",
-           data = processed_final) 
-
-mod_plot <-
+cams_mod_plot <-
   processed_final %>% 
   mutate(.fitted = predict(cams_mod, type = "response")) %>% 
   ggplot() +
   aes(x = cams_mean, y = extra_tasks, color = intervention) +
-  geom_point(alpha = .3, size = 2) +
-  geom_line(aes(y = .fitted), alpha = .6, size = 1.2) +
-  scale_color_viridis_d() +
-  labs(color = "Group",
-       y = "Solved optional tasks",
-       x = "Dispositional mindfulness")
+  geom_point(alpha = .4, 
+             size = 2, 
+             position = position_jitter(width = .1, height = 0)) +
+  geom_line(aes(y = .fitted), alpha = .9, size = 1.2) +
+  scale_color_manual(values = c("Orange", "Darkblue")) +
+  expand_limits(x = c(1,4), y = c(0, 17)) +
+  labs(y = "Solved optional tasks (0-17)",
+       x = "Dispositional mindfulness (1-4)",
+       color = "Mindfulness group",
+       tag = "A") +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~mindset)
 
-mod_plot 
+cams_mod_plot 
 
-# ggsave(plot = mod_plot, filename = "docs/figure_4.png", dpi = 300)
 ```
+
+Mindset interaction
+```{r}
+
+ms_mod_plot <-
+  processed_final %>% 
+  mutate(.fitted = predict(ms_mod, type = "response")) %>% 
+  ggplot() +
+  aes(x = ms_mean, y = extra_tasks, color = mindset) +
+  geom_point(alpha = .4, 
+             size = 2, 
+             position = position_jitter(width = .1, height = 0)) +
+  geom_line(aes(y = .fitted), alpha = .9, size = 1.2) +
+  expand_limits(x = c(1,4), y = c(0, 17)) +
+  scale_x_continuous(breaks = 1:6) +
+  labs(y = "Solved optional tasks (0-17)",
+       x = "Pre-induction growth mindset (1-6)",
+       color = "Mindset group",
+       tag = "B") +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~intervention)
+
+mod_plot <- 
+  ms_mod_plot + cams_mod_plot + 
+  plot_layout(nrow = 2)
+
+mod_plot
+
+ggsave(plot = mod_plot, height = 6, width = 9,
+       filename = "docs/figure_4.jpg", dpi = 300)
+
+```
+
 
 ## Number of correct answers in the "real" IQ test
 

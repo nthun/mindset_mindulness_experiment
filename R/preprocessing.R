@@ -83,18 +83,8 @@ gender_cat <- c("Férfi" = "Male",
 # Read data ------------------------------------------------------------------
 manual_exclude <- read_lines("data/exclude_by_survey_log.txt")
 
-# Authenticate using a PAT
-osf_pat <- read_lines("osf_pat.txt")
-osf_auth(token = osf_pat)
-
-# Download data into data folder
-osf_retrieve_file("v6kcd") %>%
-  osf_download(path = "data/",
-               conflicts = "overwrite",
-               progress = TRUE)
-
 # Read data
-mfs_raw <- qualtRics::read_survey("data/IQ_MS_MFS_2019_April+6,+2020_13.00.csv")
+mfs_raw <- qualtRics::read_survey("data/raw_data_qualtrics.csv")
 
 # Clean the  data
 mfs <- 
@@ -294,15 +284,3 @@ processed_final
 
 # write_excel_csv(processed_final, "data/processed_final.csv")
 
-
-# Create codebook --------------------------------------------------------------
-
-tibble(variable = names(processed_final),
-       type = map_chr(processed_final, class),
-       description = NA_character_) %>% 
-  write_tsv("data/processed_final_codebook.txt", na = "")
-
-
-map_chr(processed_final, class)  
-
-typeof()
