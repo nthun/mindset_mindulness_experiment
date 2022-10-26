@@ -3,12 +3,15 @@ title: "Supplementary Material - Growth mindset and mindfulness inductions to fa
 output: html_document
 editor_options: 
   chunk_output_type: console
+bibliography: ../suppmat_references.bib
+csl: https://www.zotero.org/styles/apa
 ---
 
 ```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
 
 library(tidyverse)
+library(pscl)
 library(broom)
 library(sjPlot)
 library(performance)
@@ -181,29 +184,63 @@ processed_final %>%
 
 # S3. Determinants of the task performance
 
-```{r results = "asis"}
-iq_mod <- lm(iq_real ~ mindset * intervention, 
-             data = processed_final)
+Besides pre-induction mindset beliefs and dispositional mindfulness, other individual differences may also play a role in the effect of inductions on task persistence. For example, high ego-resilience is associated with resourcefulness and adaptivity in stressful situations [@Farkas2015-tz]. Furthermore, individuals characterized by higher levels of grit — as defined as the trait level of persistence on tasks — were more likely to engage in deliberate practice even after failure [@Duckworth2011-cg]. Concurrently, high self-esteem participants persisted more than low self-esteem participants after a single failure[@Di_Paula2002-zf]. Kernis defined non-contingent self-esteem as self-compassion [@Kernis2003-kh]; thus, it may have a more powerful bolstering effect relating to a failure experience. 
 
-report(iq_mod) %>% 
-  summary()
-```
+
+## Additional measures
+
+**Grit**. We used the Short Grit Scale [@Duckworth2011-cg] to measure individuals’ tendency to endorse persistence for long-term goals. The scale consists of 8 items such as “I am diligent” (α = .81). Items are rated on a 5-point Likert scale from not like me at all (1) to very much like me (5).
+
+**Ego-Resilience**. The Ego-Resiliency Scale [@Farkas2015-tz] was used to measure the capacity that enables individuals to adapt to constantly changing environmental demands. It consists of 11 items such as “I enjoy dealing with new and unusual situations” (α = .70). Items are rated on a 4-point Likert scale, ranging from does not apply at all (1) to applies very strongly (4). 
+
+**Global Self-Esteem**. The Rosenberg Self-Esteem Scale [@Rosenberg1979-ph] was used to measure global self-esteem. The unifactorial structure is associated with a set of feelings of self-esteem and self-acceptance that evaluates overall self-esteem. This scale consists of 10-items such as “On the whole, I am satisfied with myself”. In our study, we accidentally left out one item from the questionnaire: “I certainly feel useless at times”. However, this did not affect the good internal reliability of the scale (α = .89). Items are rated on a 4-point Likert scale from strongly disagree (1) to strongly agree (4). 
+
+**Self-Compassion**. The Short Self-Compassion Scale [@Raes2011-sm] is a 12-item measure assessing the ability to show kindness and humanity towards ourselves when facing undesirable experiences. Participants indicated how often they behave in a certain way like “When I’m going through a very hard time, I give myself the caring and tenderness I need” (α = .81). Items are rated on a 5-point Likert scale from almost never (1) to almost always (5). 
+
+The table below shows the the moderating effect of trait characteristics of the aforementioned constructs on the relationship between the inductions and task persistence. We found no significant effects.
 
 ```{r}
-tab_model(iq_mod,
-          dv.labels = "\"Real\" IQ test result",
-          show.stat = TRUE,
-          show.est = FALSE,
-          show.std = TRUE,
-          show.aic = TRUE,
-          show.fstat = TRUE,
-          robust = TRUE
-          # file = here::here("docs/realiq.html")
+scale_names <- c("age" = "Age",
+                 "gender" = "Gender: Male",
+                 "ms" = "Pre-induction growth mindset",
+                 "cams" = "Dispositional mindfulness",
+                 "risc" = "Ego-resilience",
+                 "grit" = "Grit",
+                 "sc" = "Self-compassion",
+                 "se" = "Global self-esteem")
+
+moderators_m1 <- 
+  processed_final %>%
+  select(response_id, extra_tasks, mindset, intervention, 
+         age, gender, education,
+         ms_mean:grit_mean) %>% 
+  # Scale all continuous predictors
+  mutate(across( c(se_mean, sc_mean:grit_mean), scale)) %>% 
+  pivot_longer(cols = c(se_mean, sc_mean:grit_mean),
+               values_to = "moderator") %>% 
+  group_nest(name) %>% 
+  mutate(model = map(data, 
+                     ~zeroinfl(extra_tasks ~ mindset * moderator + intervention * moderator, 
+                      dist = "negbin",
+                      data = .x))) %>% 
+  mutate(Moderator = str_remove(name, "_mean") %>% 
+                     recode(., !!!scale_names))
+pull(moderators_m1, model) %>%
+  set_names(moderators_m1$Moderator) %>%
+  tab_model(.,
+            dv.labels = moderators_m1$Moderator,
+            show.aic = TRUE,
+            show.stat = TRUE,
+            p.style = "numeric",
+            show.loglik = TRUE,
+            show.dev = TRUE,
+            show.zeroinf = TRUE
           )
 
 ```
 
-# S4. Moderators for the task performance
+
+# S4. Moderators between the inductions and task performance
 
 Here we only found that the score on the "real" IQ test was weakly associated with the grit score (the upper row means the name of the moderator, that is used in the table as "value").
 
@@ -327,4 +364,6 @@ pull(ag_mod, model) %>%
               column_labels.font.weight = "bold" 
               )
 ```
+
+# References
 
