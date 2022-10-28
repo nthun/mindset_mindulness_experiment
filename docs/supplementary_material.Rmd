@@ -215,7 +215,7 @@ moderators_m1 <-
          age, gender, education,
          ms_mean:grit_mean) %>% 
   # Scale all continuous predictors
-  mutate(across( c(se_mean, sc_mean:grit_mean), scale)) %>% 
+  mutate(across(c(se_mean, sc_mean:grit_mean), scale)) %>% 
   pivot_longer(cols = c(se_mean, sc_mean:grit_mean),
                values_to = "moderator") %>% 
   group_nest(name) %>% 
